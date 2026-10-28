@@ -8,7 +8,7 @@ THE GOAL:
 CORE CONCEPTS & PROJECT SCOPE:
 1. The Scale of the Project:
     * We are building a backend for a video hosting platform with 29 UI screens.
-    * TUTOR IMPORTANT NOTE: We will not focus on the UI/Frontend in this series. The UI preview was shown purely to help us visualize what JSON data our APIs need to return.
+    * NOTE: We will not focus on the UI/Frontend in this series. The UI preview was shown purely to help us visualize what JSON data our APIs need to return.
 
 2. Authentication & Security (25-30% of the course):
     * Registration and Login.
@@ -33,5 +33,4 @@ CORE CONCEPTS & PROJECT SCOPE:
     * An Admin panel to track total views, total subscribers, and total likes across all videos.
     * To achieve this dashboard, we will dive heavily into **MongoDB Aggregation Pipelines**. This is an industry-standard way to write complex queries and join multiple collections (like joining Users, Videos, and Likes together).
 
-TUTOR NOTE: Hitesh Sir wrote no code in this lecture as he was giving a roadmap preview before a short break to his 39th country (South Korea). We resume actual coding in the next lecture!
 */
