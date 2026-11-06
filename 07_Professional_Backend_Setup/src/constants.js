@@ -1,0 +1,1 @@
+// Application constants (like DB name) will go here
