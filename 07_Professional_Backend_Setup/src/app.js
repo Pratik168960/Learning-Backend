@@ -22,5 +22,23 @@ app.use(express.static("public"))
 // Middleware to securely parse and set cookies on the user's browser
 app.use(cookieParser())
 
+
+
+// ==========================================
+// ROUTES DECLARATION
+// ==========================================
+
+// 1. Import the router
+import userRouter from './routes/user.routes.js'
+
+// 2. Route declaration
+// We use app.use() instead of app.get() because we have modularized the router.
+// Any request coming to "/api/v1/users" will be handed over to the userRouter.
+// E.g. -> http://localhost:8000/api/v1/users/register
+app.use("/api/v1/users", userRouter) // This is the base route for all user-related operations. The userRouter will handle the rest of the path after "/api/v1/users". standard practice is to have a base route for each resource (like users, products, etc.) and then define specific actions (like register, login, etc.) in the router.
+
+
+
+
 // Export the configured app so index.js can import and run it
 export { app }
