@@ -52,13 +52,21 @@ const userSchema = new Schema( // Define the User schema with fields for usernam
 )
 
 // Pre-save hook to hash the password before saving it to the database
-userSchema.pre("save", async function (next) // here we have to avoid arrow function as it does not the context which is required here this process takes time hence async is used 
+// Note: In Mongoose v7+, if we use an async function, it returns a Promise. 
+// Mongoose automatically waits for the Promise to resolve. 
+// Do NOT pass or call a `next()` callback inside an async hook, as it will cause a "next is not a function" TypeError in postman.
+userSchema.pre("save", async function () 
     {
     // If password is not modified (e.g., just updating avatar), skip hashing
-    if(!this.isModified("password")) return next();
+    if(!this.isModified("password")) return;
 
     this.password = await bcrypt.hash(this.password, 10) // Hash the password with a salt round of 10
-    next()
+})
+userSchema.pre("save", async function () {
+    // If password is not modified (e.g., just updating avatar), skip hashing
+    if(!this.isModified("password")) return;
+
+    this.password = await bcrypt.hash(this.password, 10) // Hash the password with a salt round of 10
 })
 
 // Custom method to compare the clear text password with the encrypted hash

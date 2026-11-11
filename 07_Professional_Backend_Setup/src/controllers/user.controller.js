@@ -41,7 +41,7 @@ const registerUser = asyncHandler( async (req, res) => {
     const avatarLocalPath = req.files?.avatar[0]?.path; // Use optional chaining to safely access the path of the uploaded avatar file. If the avatar file is not provided, this will be undefined.
     let coverImageLocalPath; // Initialize a variable to hold the local path of the cover image. It will be set only if a cover image is provided.
     
-    if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage. length > 0) { // Check if the coverImage field exists in req.files and is a non-empty array. This ensures that we only try to access the path if a cover image was actually uploaded.
+    if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) { // Check if the coverImage field exists in req.files and is a non-empty array. This ensures that we only try to access the path if a cover image was actually uploaded.
         coverImageLocalPath = req.files.coverImage[0].path
     }
 
