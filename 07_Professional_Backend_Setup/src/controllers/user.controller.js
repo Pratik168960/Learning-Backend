@@ -83,4 +83,102 @@ const registerUser = asyncHandler( async (req, res) => {
     ) // Send a 201 Created response with a standardized API response object. The ApiResponse class is used to create a consistent structure for the response, including the status code, data, and message.
 } )
 
-export { registerUser }
+// Helper function to generate both tokens and save the refresh token in the DB
+const generateAccessAndRefreshTokens = async(userId) => {
+    try {
+        const user = await User.findById(userId)
+        const accessToken = user.generateAccessToken()
+        const refreshToken = user.generateRefreshToken()
+
+        user.refreshToken = refreshToken
+        // Save to DB but skip Mongoose validation (like requiring password again)
+        await user.save({ validateBeforeSave: false })
+
+        return {accessToken, refreshToken}
+
+    } catch (error) {
+        throw new ApiError(500, "Something went wrong while generating refresh and access token")
+    }
+}
+
+const loginUser = asyncHandler(async (req, res) => {
+    // Step 1: Get data from body
+    const { email, username, password } = req.body
+
+    // Step 2: Ensure either email or username is provided
+    if (!username && !email) { 
+        throw new ApiError(400, "username or email is required")
+    }
+
+    // Step 3: Find the user
+    const user = await User.findOne({
+        $or: [{username}, {email}]
+    })
+
+    if (!user) {
+        throw new ApiError(404, "User does not exist")
+    }
+
+    // Step 4: Check if the password is correct using our custom model method
+    const isPasswordValid = await user.isPasswordCorrect(password) // capital User is from mongoose model, small user is the instance of the model. we are calling the method on the instance of the model.
+
+    if (!isPasswordValid) {
+        throw new ApiError(401, "Invalid user credentials")
+    }
+
+    // Step 5: Generate tokens
+    const {accessToken, refreshToken} = await generateAccessAndRefreshTokens(user._id) // Call the helper function to generate both access and refresh tokens. The function also saves the refresh token in the database for future validation.
+
+    // Step 6: Fetch the user again to strip out the password and refresh token before sending to frontend
+    const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
+
+    const options = { 
+        httpOnly: true,
+        secure: true
+    }
+
+    // Step 7: Send the response with cookies
+    return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+        new ApiResponse(
+            200, 
+            {
+                user: loggedInUser, accessToken, refreshToken
+            },
+            "User logged In Successfully"
+        )
+    )
+})
+
+const logoutUser = asyncHandler(async (req, res) => {
+    // We have access to req.user because of our verifyJWT middleware!
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            // $set operator updates specific fields
+            $set: {
+                refreshToken: undefined 
+            }
+        },
+        {
+            new: true
+        }
+    )
+
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+
+    return res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, {}, "User logged out"))
+})
+
+// Don't forget to export them!
+export { registerUser, loginUser, logoutUser } 
