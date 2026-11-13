@@ -1,6 +1,7 @@
 import { Router } from "express";
-import { registerUser } from "../controllers/user.controller.js";
+import { registerUser, loginUser, logoutUser } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js"; // Import the multer middleware for handling file uploads
+import { verifyJWT } from "../middlewares/auth.middleware.js"; // Import the middleware
 
 const router = Router()
 
@@ -25,5 +26,15 @@ router.route("/register").post(
     ]),
     registerUser
     )
+
+
+router.route("/login").post(loginUser)
+
+// SECURED ROUTES
+// We inject verifyJWT before logoutUser. The middleware ensures the user is logged in, 
+// and if successful, calls next() to trigger logoutUser.
+router.route("/logout").post(verifyJWT, logoutUser)
+
+
 
 export default router
