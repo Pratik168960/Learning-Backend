@@ -62,12 +62,7 @@ userSchema.pre("save", async function ()
 
     this.password = await bcrypt.hash(this.password, 10) // Hash the password with a salt round of 10
 })
-userSchema.pre("save", async function () {
-    // If password is not modified (e.g., just updating avatar), skip hashing
-    if(!this.isModified("password")) return;
 
-    this.password = await bcrypt.hash(this.password, 10) // Hash the password with a salt round of 10
-})
 
 // Custom method to compare the clear text password with the encrypted hash
 userSchema.methods.isPasswordCorrect = async function(password){
