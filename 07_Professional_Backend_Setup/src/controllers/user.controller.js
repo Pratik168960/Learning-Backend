@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js"
 import { User } from "../models/user.model.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
+import jwt from "jsonwebtoken"
 
 /*
 // Wrap the controller logic in asyncHandler to avoid repetitive try/catch blocks
@@ -121,7 +122,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
     // Step 4: Check if the password is correct using our custom model method
     const isPasswordValid = await user.isPasswordCorrect(password) // capital User is from mongoose model, small user is the instance of the model. we are calling the method on the instance of the model.
-
+    console.log(password)
     if (!isPasswordValid) {
         throw new ApiError(401, "Invalid user credentials")
     }
@@ -180,5 +181,63 @@ const logoutUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "User logged out"))
 })
 
+
+const refreshAccessToken = asyncHandler(async (req, res) => {
+    // Step 1: Get the refresh token from cookies or request body
+    const incomingRefreshToken = req.cookies?.refreshToken || req.body?.refreshToken
+
+    if (!incomingRefreshToken) {
+        throw new ApiError(401, "unauthorized request")
+    }
+
+    try {
+        // Step 2: Verify the refresh token
+        const decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET)
+
+        // Step 3: Find the user by ID
+        const user = await User.findById(decodedToken._id)
+
+        if (!user) {
+            throw new ApiError(401, "Invalid refresh token")
+        }
+
+        // Step 4: Check if the refresh token matches the one in the database
+        if (user?.refreshToken !== incomingRefreshToken) {
+            throw new ApiError(401, "Refresh token is expired or used")
+        }
+
+        // Step 5: Generate a new access token and refresh token
+        const {accessToken, refreshToken} = await generateAccessAndRefreshTokens(user._id)
+
+        // Step 6: Update the user's refresh token in the database
+        await User.findByIdAndUpdate(user._id, {
+            $set: {
+                refreshToken
+            }
+        }, {
+            new: true
+        })
+
+        // Step 7: Send the response with the new tokens
+        const options = {
+            httpOnly: true,
+            secure: true
+        }
+
+        return res
+            .status(200)
+            .cookie("accessToken", accessToken, options)
+            .cookie("refreshToken", refreshToken, options)
+            .json(
+                new ApiResponse(
+                    200, 
+                    { accessToken, refreshToken },
+                    "Access token refreshed"
+                )
+            )
+    } catch (error) {
+        throw new ApiError(401, "Invalid refresh token")
+    }
+})
 // Don't forget to export them!
-export { registerUser, loginUser, logoutUser } 
+export { registerUser, loginUser, logoutUser, refreshAccessToken } 

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { registerUser, loginUser, logoutUser } from "../controllers/user.controller.js";
+import { registerUser, loginUser, logoutUser, refreshAccessToken } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js"; // Import the multer middleware for handling file uploads
 import { verifyJWT } from "../middlewares/auth.middleware.js"; // Import the middleware
 
@@ -35,6 +35,7 @@ router.route("/login").post(loginUser)
 // and if successful, calls next() to trigger logoutUser.
 router.route("/logout").post(verifyJWT, logoutUser)
 
+router.route("/refresh-token").post(refreshAccessToken)
 
 
 export default router
