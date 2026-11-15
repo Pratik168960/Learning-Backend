@@ -239,5 +239,140 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
         throw new ApiError(401, "Invalid refresh token")
     }
 })
+
+
+const changeCurrentPassword = asyncHandler(async (req, res) => {
+    // Step 1: Get old and new passwords from the request body
+    const {oldPassword, newPassword} = req.body
+
+    // Step 2: Find the user by ID
+    const user = await User.findById(req.user?._id)
+    const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
+
+    if (!isPasswordCorrect) {
+        throw new ApiError(400, "Invalid old password")
+    }
+
+    // Step 3: Update the user's password and save the changes
+    user.password = newPassword
+    await user.save({validateBeforeSave: false})
+
+    // Step 4: Send a success response
+    return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Password changed successfully"))
+})
+
+const getCurrentUser = asyncHandler(async(req, res) => {
+    return res
+    .status(200)
+    .json(new ApiResponse(200, req.user, "Current user fetched successfully"))
+})
+
+const updateAccountDetails = asyncHandler(async (req, res) => {
+    // Step 1: Get the updated details from the request body
+    const {fullName, email} = req.body
+
+    
+    if (!fullName || !email) {
+        throw new ApiError(400, "All fields are required")
+    }
+
+    // Step 2: Update the user's account details
+    const user = await User.findByIdAndUpdate( 
+        req.user?._id,
+        {
+            $set: {
+                fullName: fullName,
+                email: email
+            }
+        }, 
+        {new: true} // information after the update is returned. if we don't pass this option then the information before the update is returned
+        
+    ).select("-password") 
+
+    //  Step 3: Send a success response with the updated user details
+    return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Account details updated successfully"))
+})
+// production level advice if we have to update some file we should keep different end points different controllers 
+
+const updateUserAvatar = asyncHandler(async(req, res) => {
+    // Step 1: Get the avatar file path from the request
+    const avatarLocalPath = req.file?.path // got from multer middleware.
+
+    // Step 2: Validate that the avatar file is provided
+    if (!avatarLocalPath) {
+        throw new ApiError(400, "Avatar file is missing")
+    }
+
+    // Step 3: Upload the avatar to Cloudinary
+    // TODO: Ideally, delete the old image from Cloudinary here before uploading the new one 
+    const avatar = await uploadOnCloudinary(avatarLocalPath)
+
+    if (!avatar.url) {
+        throw new ApiError(400, "Error while uploading on avatar")
+    }
+
+    // Step 4: Update the user's avatar URL in the database
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set:{
+                avatar: avatar.url
+            }
+        },
+        {new: true}
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Avatar image updated successfully"))
+})
+
+
+
+const updateUserCoverImage = asyncHandler(async(req, res) => {
+    const coverImageLocalPath = req.file?.path
+
+    if (!coverImageLocalPath) {
+        throw new ApiError(400, "Cover image file is missing")
+    }
+
+    // TODO: Ideally, delete the old image from Cloudinary here before uploading the new one
+    const coverImage = await uploadOnCloudinary(coverImageLocalPath)
+
+    if (!coverImage.url) {
+        throw new ApiError(400, "Error while uploading on cover image")
+    }
+
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set:{
+                coverImage: coverImage.url
+            }
+        },
+        {new: true}
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Cover image updated successfully"))
+})
+
+
+
 // Don't forget to export them!
-export { registerUser, loginUser, logoutUser, refreshAccessToken } 
+export { 
+    registerUser, 
+    loginUser, 
+    logoutUser, 
+    refreshAccessToken, 
+    changeCurrentPassword, 
+    getCurrentUser, 
+    updateAccountDetails, 
+    updateUserAvatar, 
+    updateUserCoverImage 
+}
