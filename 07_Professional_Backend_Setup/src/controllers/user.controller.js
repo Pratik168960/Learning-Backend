@@ -1,7 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js"; // if we export asynchandler as default then we can import it with any name but if we export it as named export then we have to import it with the same name. and curly braces are required
 import { ApiError } from "../utils/ApiError.js"
 import { User } from "../models/user.model.js"
-import { uploadOnCloudinary } from "../utils/cloudinary.js"
+import { uploadOnCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken"
 
@@ -301,13 +301,22 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 const updateUserAvatar = asyncHandler(async(req, res) => {
     // Step 1: Get the avatar file path from the request
     const avatarLocalPath = req.file?.path // got from multer middleware.
+    
 
     // Step 2: Validate that the avatar file is provided
     if (!avatarLocalPath) {
         throw new ApiError(400, "Avatar file is missing")
     }
 
-    // Step 3: Upload the avatar to Cloudinary
+    // Step 3: Fetch the existing user to get the old avatar URL
+    const existingUser = await User.findById(req.user?._id);
+    if (!existingUser) {
+        throw new ApiError(404, "User not found");
+    }
+    
+    const oldAvatarUrl = existingUser?.avatar;
+    
+    // Step 4: Upload the avatar to Cloudinary
     // TODO: Ideally, delete the old image from Cloudinary here before uploading the new one 
     const avatar = await uploadOnCloudinary(avatarLocalPath)
 
@@ -315,7 +324,7 @@ const updateUserAvatar = asyncHandler(async(req, res) => {
         throw new ApiError(400, "Error while uploading on avatar")
     }
 
-    // Step 4: Update the user's avatar URL in the database
+    // Step 5: Update the user's avatar URL in the database
     const user = await User.findByIdAndUpdate(
         req.user?._id,
         {
@@ -326,6 +335,15 @@ const updateUserAvatar = asyncHandler(async(req, res) => {
         {new: true}
     ).select("-password")
 
+    // Step 6: Delete the old avatar from Cloudinary if it exists
+    if (oldAvatarUrl) {
+        // Extract public_id from the Cloudinary URL 
+        // Example: http://res.cloudinary.com/.../v123456/sample.jpg -> extracts "sample"
+        const publicId = oldAvatarUrl.split("/").pop().split(".")[0];
+        await deleteFromCloudinary(publicId);
+    }
+
+    // Step 7: Send a success response with the updated user details
     return res
     .status(200)
     .json(new ApiResponse(200, user, "Avatar image updated successfully"))
@@ -339,6 +357,14 @@ const updateUserCoverImage = asyncHandler(async(req, res) => {
     if (!coverImageLocalPath) {
         throw new ApiError(400, "Cover image file is missing")
     }
+
+    const existingUser = await User.findById(req.user?._id)
+
+    if (!existingUser) {
+        throw new ApiError(404, "User not found");
+    }
+
+    const oldCoverImageUrl = existingUser?.coverImage;
 
     // TODO: Ideally, delete the old image from Cloudinary here before uploading the new one
     const coverImage = await uploadOnCloudinary(coverImageLocalPath)
@@ -356,6 +382,14 @@ const updateUserCoverImage = asyncHandler(async(req, res) => {
         },
         {new: true}
     ).select("-password")
+
+
+    if (oldCoverImageUrl) {
+        // Extract public_id from the Cloudinary URL 
+        // Example: http://res.cloudinary.com/.../v123456/sample.jpg -> extracts "sample"
+        const publicId = oldCoverImageUrl.split("/").pop().split(".")[0];
+        await deleteFromCloudinary(publicId);
+    }
 
     return res
     .status(200)
