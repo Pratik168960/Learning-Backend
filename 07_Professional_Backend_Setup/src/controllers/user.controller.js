@@ -479,6 +479,67 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     )
 })
 
+const getWatchHistory = asyncHandler(async (req, res) => {
+    // Use MongoDB aggregation to fetch the user's watch history along with video owner details
+    const user = await User.aggregate([
+        // Stage 1: Match the user by their ID. MUST manually convert to ObjectId.
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(req.user._id) // Convert the logged-in user's ID to a MongoDB ObjectId for the aggregation pipeline. This is necessary because aggregation pipelines bypass Mongoose's automatic type conversion.
+            }
+        },
+        // Stage 2: Lookup the videos from the watchHistory array
+        {
+            $lookup: {
+                from: "videos",
+                localField: "watchHistory",
+                foreignField: "_id",
+                as: "watchHistory",
+                // NESTED PIPELINE: Run this on the matched video documents
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: "users",
+                            localField: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            // SUB-PIPELINE: Clean up the owner object before attaching it to the video 
+                            pipeline: [
+                                {
+                                    $project: { // Only include the fields we want from the owner document
+                                        fullName: 1,
+                                        username: 1,
+                                        avatar: 1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    // The 'owner' field is currently an array because of the lookup. 
+                    // We extract the first object so it's a flat object for the frontend.
+                    {
+                        $addFields: {
+                            owner: {
+                                $first: "$owner"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ])
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            user[0].watchHistory,
+            "Watch history fetched successfully"
+        )
+    )
+})
+
 
 // Don't forget to export them!
 export { 
@@ -491,5 +552,6 @@ export {
     updateAccountDetails, 
     updateUserAvatar, 
     updateUserCoverImage,
-    getUserChannelProfile
+    getUserChannelProfile,
+    getWatchHistory
 }

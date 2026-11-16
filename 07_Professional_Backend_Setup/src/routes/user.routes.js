@@ -9,7 +9,8 @@ import {
     updateUserAvatar, 
     updateUserCoverImage, 
     getUserChannelProfile, 
-    updateAccountDetails
+    updateAccountDetails,
+    getWatchHistory
 } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js"; // Import the multer middleware for handling file uploads
 import { verifyJWT } from "../middlewares/auth.middleware.js"; // Import the middleware
@@ -36,7 +37,7 @@ router.route("/register").post(
         }
     ]),
     registerUser
-    )
+)
 
 
 router.route("/login").post(loginUser)
@@ -60,7 +61,7 @@ router.route("/cover-image").patch(verifyJWT, upload.single("coverImage"), updat
 
 // NEW ROUTE for Channel Profile
 // Uses 'get' request, expects a dynamic :username param, and requires verifyJWT to calculate subscription status.
-router.route("/c/:username").get(verifyJWT, getUserChannelProfile)
-
+router.route("/c/:username").get(verifyJWT, getUserChannelProfile) // Fetch a user's channel profile from params
+router.route("/history").get(verifyJWT, getWatchHistory)
 
 export default router
