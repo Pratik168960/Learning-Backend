@@ -396,6 +396,88 @@ const updateUserCoverImage = asyncHandler(async(req, res) => {
     .json(new ApiResponse(200, user, "Cover image updated successfully"))
 })
 
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+    // Step 1: Extract the username from the request parameters
+    const {username} = req.params // Extract the username from the request parameters
+
+    if (!username?.trim()) {
+        throw new ApiError(400, "username is missing")
+    }
+
+    // Step 2: Use MongoDB aggregation to fetch the channel profile along with subscription details
+    // Aggregation pipelines always take an array of stages
+    const channel = await User.aggregate([ // array of stages. each stage is an object. 
+        // Stage 1: Match the user document by username
+        {
+            $match: { 
+                username: username?.toLowerCase()
+            }
+        },
+        // Stage 2: Lookup subscribers (Who has subscribed to this user/channel?)
+        {
+            $lookup: { 
+                from: "subscriptions", // collection name in DB is always lowercase and plural
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers" // Inject all matched documents into an array named 'subscribers'
+            }
+        },
+        // Stage 3: Lookup channels this user has subscribed to
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo" // Array of channels this user follows
+            }
+        },
+        // Stage 4: Add calculated fields
+        {
+            $addFields: {
+                subscribersCount: {
+                    $size: "$subscribers" // Count items in the 'subscribers' array
+                },
+                channelsSubscribedToCount: {
+                    $size: "$subscribedTo" // Count items in the 'subscribedTo' array
+                },
+                isSubscribed: {
+                    $cond: {
+                        // If the logged-in user's ID exists in the 'subscribers' array's 'subscriber' field...
+                        if: {$in: [req.user?._id, "$subscribers.subscriber"]}, // check if the logged-in user's ID exists in the 'subscribers' array's 'subscriber' field
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        // Stage 5: Project exactly what fields we want to send to the frontend
+        {
+            $project: { // selected fields to return to the frontend. 1 means include, 0 means exclude
+                fullName: 1,
+                username: 1,
+                subscribersCount: 1,
+                channelsSubscribedToCount: 1,
+                isSubscribed: 1,
+                avatar: 1,
+                coverImage: 1,
+                email: 1
+            }
+        }
+    ])
+
+    // Aggregation returns an array. If length is 0, the username doesn't exist.
+    if (!channel?.length) {
+        throw new ApiError(404, "channel does not exist")
+    }
+
+    // Step 3: Send the response with the channel profile data
+    return res
+    .status(200)
+    .json(
+        // Extract the first element of the array (the actual channel profile object)
+        new ApiResponse(200, channel[0], "User channel fetched successfully")
+    )
+})
 
 
 // Don't forget to export them!
@@ -408,5 +490,6 @@ export {
     getCurrentUser, 
     updateAccountDetails, 
     updateUserAvatar, 
-    updateUserCoverImage 
+    updateUserCoverImage,
+    getUserChannelProfile
 }
